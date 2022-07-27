@@ -1,10 +1,7 @@
 package com.example.success.entity;
 
-
 import com.fasterxml.jackson.dataformat.xml.annotation.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+
 
 @JacksonXmlRootElement(localName = "job")
 public class Job {

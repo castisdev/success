@@ -3,6 +3,7 @@ package com.example.success.service;
 
 
 import com.example.success.constant.Constants;
+import com.example.success.data.JobData;
 import com.example.success.entity.Job;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
@@ -15,16 +16,45 @@ public class EncodingService {
 
     public static Job getJobByUuid(String uuid, List<Job> jobList) throws Exception {
         Job jobRet = null;
-        if (!jobList.isEmpty()) {
-            for (Job job : jobList) {
-                jobRet = job.getId() == uuid ? job : null;
+        if (Objects.nonNull(jobList)) {
+            if (!jobList.isEmpty()) {
+                for (Job job : jobList) {
+                    if (job.getId().equalsIgnoreCase(uuid)) {
+                        jobRet = job;
+                        break;
+                    }
+                }
+            } else {
+                throw new Exception(String.format("JobList is empty"));
             }
+        } else {
+            throw new Exception(String.format("JobList is null"));
         }
+
         if (Objects.isNull(jobRet)) {
-            throw new Exception(String.format("Not found Job with uuid: %s", uuid));
+            throw new Exception(String.format("job{uuid=%s} is null", uuid));
         }
 
         return jobRet;
+    }
+
+    public static JobData getJobDataById(String id, List<JobData> jobDataList) {
+
+        if (!id.isEmpty()) {
+            if (Objects.nonNull(jobDataList))  {
+                for (JobData jobData1 : jobDataList) {
+                    if (jobData1.getId().equalsIgnoreCase(id)) {
+                        return jobData1;
+                    }
+                }
+            } else {
+                throw new IllegalArgumentException("jobDataList is null");
+            }
+        } else {
+            throw new IllegalArgumentException(String.format("id = %s is invalid", id));
+        }
+
+        return null;
     }
 
     public static void saveJobToDB(Job job, List<Job> jobList) {

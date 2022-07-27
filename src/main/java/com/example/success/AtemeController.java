@@ -1,6 +1,8 @@
 package com.example.success;
 
 import com.example.success.constant.Constants;
+import com.example.success.data.DataCenter;
+import com.example.success.data.JobData;
 import com.example.success.entity.Job;
 import com.example.success.service.DashEncodingService;
 import com.example.success.service.EncodingService;
@@ -41,11 +43,12 @@ public class AtemeController {
     private String dashResource;
     // data
 
-    public static String sharedSourceFileName = "";
-    public static String sharedPresetName = "";
-    public static boolean isHlsEncode = true;
 
-    public static List<Job> jobList = new ArrayList<Job>();
+    @Autowired
+    DataCenter dataCenter;
+
+    @Autowired
+    JobData jobData;
 
     @GetMapping("")
     public ResponseEntity<?> testApi() throws Exception {
@@ -63,13 +66,21 @@ public class AtemeController {
 
 
 
-
     // API dummy for getJobByUUID(uuid)
     @GetMapping(value = "/{uuid}", produces = "text/xml")
     public ResponseEntity<?> getAtemeStateByUuid(@PathVariable String uuid) throws Exception {
         // get AtemeJob by uuId;
+        log.info(String.format("[API getAtemeStateByUuid] job list: %s", dataCenter.getJobList().toString()));
 
-        Job job = EncodingService.getJobByUuid(uuid, jobList);
+        Job job = null;
+        if (!Strings.isEmpty(uuid)) {
+            job = EncodingService.getJobByUuid(uuid, dataCenter.getJobList());
+        } else {
+            throw new Exception(String.format("Job with uuid={%s} is NULL", uuid));
+        }
+
+        log.info(String.format("[API getAtemeStateByUuid] with uuid= %s, response Job {%s}", uuid, job.toString()));
+
         return ResponseEntity.status(HttpStatus.OK).body(job);
     }
 
@@ -87,50 +98,84 @@ public class AtemeController {
         job.setProgress("1%");
 
         log.info(String.format("create job with body: %s", job));
-        jobList.add(job);
+
+        JobData jobData = new JobData();
+        jobData.setJob(job);
+        jobData.setId(job.getId());
+
+
+        dataCenter.getJobList().add(job);
+        dataCenter.getJobDataList().add(jobData);
+
+        dataCenter.setJobList(dataCenter.getJobList());
+        dataCenter.setJobDataList(dataCenter.getJobDataList());
+
+        log.info(String.format("[API createJob] data center: : %s", dataCenter.toString()));
+        log.info(String.format("[API createJob] job list: %s", dataCenter.getJobList().toString()));
+        log.info(String.format("[API createJob] job: {%s}", job.toString()));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(job);
     } // expected code: 201
+
     // 2. add preset
     @PostMapping("/{uuid}/preset")
     public ResponseEntity<?> addPreset(@PathVariable String uuid, @RequestBody String cmsOutputBody) throws ParserConfigurationException, IOException, SAXException {
         //outputBody = "<preset><name>" + encodingJobQueue.getPresetName() + "</name></preset>"
         // get presetName from cmsOutput body:
-        log.info(String.format("addPreset with uuid %s, cmsOutputBody %s", uuid, cmsOutputBody));
-        sharedPresetName = getValueByTagName(cmsOutputBody, "name");
-        String presetName = sharedPresetName;
+        log.info(String.format("[API addPreset] addPreset with uuid %s, cmsOutputBody %s", uuid, cmsOutputBody));
+        String presetName = getValueByTagName(cmsOutputBody, "name");
+
+
+        boolean isHlsEncode = true;
         // ott
         if (presetName.contains("dash") || presetName.contains("DASH")) {
             // encoding by dash
             isHlsEncode = false;
         }
+        // todo: encoding by stb --- do nothing: processing with .ts file
+
+        JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        jobData.setHlsEncode(isHlsEncode);
+
+        dataCenter.getJobDataList().add(jobData);
+        dataCenter.setJobDataList(dataCenter.getJobDataList());
         // stb
         // ...
-
+        log.info(String.format("[API addPreset] Job Data {%s}", EncodingService.getJobDataById(uuid, dataCenter.getJobDataList())));
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
     // 3. set output
     @PostMapping("/{uuid}/output")
     public ResponseEntity<?> setOutput(@PathVariable String uuid, @RequestBody String cmsOutputBody) throws ParserConfigurationException, IOException, SAXException {
         // <output><file>" + sourceFileName + "</file></output>
-        sharedSourceFileName = getValueByTagName(cmsOutputBody,"file");
-        String sourceFileName = sharedSourceFileName;
+        String sourceFileName  = getValueByTagName(cmsOutputBody,"file");
+        JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        jobData.setSourceFileName(sourceFileName);
 
-        log.info(String.format("set Output to Ateme, uuid %s, cmsOutputbody: %s", uuid, cmsOutputBody));
+        dataCenter.getJobDataList().add(jobData);
+        dataCenter.setJobDataList(dataCenter.getJobDataList());
+        // stb
+        // ...
+        log.info(String.format("[API setOutput] Job Data {%s}", EncodingService.getJobDataById(uuid, dataCenter.getJobDataList())));
+        log.info(String.format("[API setOutput] set Output to Ateme, uuid %s, cmsOutputbody: %s", uuid, cmsOutputBody));
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
     // 4. add segment
     @PostMapping("/{uuid}/segments")
     public ResponseEntity<?> addSegment(@PathVariable String uuid, @RequestBody String cmsOutputBody) {
-        log.info("addSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody);
+        log.info("[Add addSegment] addSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody);
+        JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        log.info("[Add addSegment] JobData %s", jobData);
         return ResponseEntity.status(HttpStatus.CREATED).body(uuid); // 201
     }
     // 5. add input to segment
     @PostMapping("/{uuid}/segments/1/inputs")
     public ResponseEntity<?> addInputToSegment(@PathVariable String uuid, @RequestBody String cmsOutputBody) {
         // outputBody = "<input><uri>" + sourceFileName + "</uri></input>"
-        log.info("addInputToSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody);
+        JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        log.info("[API addInputToSegment] addInputToSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody);
+        log.info("[API addInputToSegment] JobData %s", jobData);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
     // 6. add drm
@@ -143,19 +188,24 @@ public class AtemeController {
         // String.format("<drm type=\"%s\"><%s><resource_id>%s</resource_id></%s></drm>",
         //						encryptionName, encryptionName, jobResourceId, encryptionName);
 
-        log.info("addDrm to Ateme, uuid %s cmsRequestBody %s", uuid, cmsRequestBody);
+        JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        log.info("[API addDrm] addDrm to Ateme, uuid %s cmsRequestBody %s", uuid, cmsRequestBody);
+        log.info("[API addDrm] addDrm to Ateme: JobData %s", jobData.toString());
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
+
     // 7. start job
     @PostMapping("/{uuid}/state?value=pending")
     public ResponseEntity<?> startJob(@PathVariable String uuid ) throws Exception {
-        log.info(String.format("addPreset with uuid %s", uuid));
+        log.info(String.format("[API startJob] addPreset with uuid %s", uuid));
         // encode here:
-        if (isHlsEncode) {
-            hlsEncodingService.encode(sharedSourceFileName, m3u8FileResource);
+        JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        log.info(String.format("[API startJob] JobData: %s", jobData.toString()));
+        if (jobData.isHlsEncode()) {
+            hlsEncodingService.encode(jobData.getSourceFileName(), m3u8FileResource);
         } else {
-            dashEncodingService.encode(sharedSourceFileName, dashResource);
+            dashEncodingService.encode(jobData.getSourceFileName(), dashResource);
         }
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
