@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.*;
 
+import static com.example.success.service.EncodingService.saveJobDataToJobDataList;
+import static com.example.success.service.EncodingService.saveJobToJobList;
+
 @RestController
 @RequestMapping("/restapi/jobs")
 @Slf4j
@@ -50,20 +53,11 @@ public class AtemeController {
     @Autowired
     JobData jobData;
 
-    @GetMapping("")
-    public ResponseEntity<?> testApi() throws Exception {
-        Random rn = new Random();
-        int t = 10 + rn.nextInt(99 - 10 + 1);
-
-        // test encoding:
-        String sourceFileName = "E:\\NAS_INGEST01\\cms\\repository\\asset\\202207\\330919\\330919_44V.mp4";
-
-        hlsEncodingService.encode(sourceFileName, m3u8FileResource);
-        dashEncodingService.encode(sourceFileName, dashResource); // ok
-
-        return ResponseEntity.status(HttpStatus.OK).body("ok");
+    @GetMapping("/dash")
+    public void testEncode() throws Exception {
+        String sourceFilename = "E:\\NAS_INGEST01\\cms\\repository\\asset\\202208\\test\\ott_dash\\test.mpd";
+        dashEncodingService.encode(sourceFilename, dashResource);
     }
-
 
 
     // API dummy for getJobByUUID(uuid)
@@ -88,7 +82,7 @@ public class AtemeController {
     @PostMapping(value = "", produces = "text/xml")
     public ResponseEntity<?> createJob(@RequestBody String cmsOutputBody) {
         // outputBody = "<job><name>" + sourceFileName + "</name></job>"
-        log.info(String.format("createJob with cmsOutputBody: %s", cmsOutputBody));
+        log.info(String.format("[API createJob] createJob with cmsOutputBody: %s", cmsOutputBody));
 
         String uuid = UUID.randomUUID().toString();
 
@@ -123,7 +117,10 @@ public class AtemeController {
         //outputBody = "<preset><name>" + encodingJobQueue.getPresetName() + "</name></preset>"
         // get presetName from cmsOutput body:
         log.info(String.format("[API addPreset] addPreset with uuid %s, cmsOutputBody %s", uuid, cmsOutputBody));
+
         String presetName = getValueByTagName(cmsOutputBody, "name");
+
+        log.info(String.format("[API addPreset] addPreset with uuid %s, presetName %s", uuid, presetName));
 
 
         boolean isHlsEncode = true;
@@ -135,9 +132,10 @@ public class AtemeController {
         // todo: encoding by stb --- do nothing: processing with .ts file
 
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
+        jobData.setPresetName(presetName);
         jobData.setHlsEncode(isHlsEncode);
 
-        dataCenter.getJobDataList().add(jobData);
+        saveJobDataToJobDataList(jobData, dataCenter.getJobDataList());
         dataCenter.setJobDataList(dataCenter.getJobDataList());
         // stb
         // ...
@@ -152,7 +150,8 @@ public class AtemeController {
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
         jobData.setSourceFileName(sourceFileName);
 
-        dataCenter.getJobDataList().add(jobData);
+
+        saveJobDataToJobDataList(jobData, dataCenter.getJobDataList());
         dataCenter.setJobDataList(dataCenter.getJobDataList());
         // stb
         // ...
@@ -163,10 +162,10 @@ public class AtemeController {
     }
     // 4. add segment
     @PostMapping("/{uuid}/segments")
-    public ResponseEntity<?> addSegment(@PathVariable String uuid, @RequestBody String cmsOutputBody) {
-        log.info("[Add addSegment] addSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody);
+    public ResponseEntity<?> addSegment(@PathVariable String uuid) {
+        log.info(String.format("[Add addSegment] addSegment to Ateme, uuid %s ", uuid));
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
-        log.info("[Add addSegment] JobData %s", jobData);
+        log.info(String.format("[Add addSegment] JobData %s", jobData));
         return ResponseEntity.status(HttpStatus.CREATED).body(uuid); // 201
     }
     // 5. add input to segment
@@ -174,8 +173,8 @@ public class AtemeController {
     public ResponseEntity<?> addInputToSegment(@PathVariable String uuid, @RequestBody String cmsOutputBody) {
         // outputBody = "<input><uri>" + sourceFileName + "</uri></input>"
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
-        log.info("[API addInputToSegment] addInputToSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody);
-        log.info("[API addInputToSegment] JobData %s", jobData);
+        log.info(String.format("[API addInputToSegment] addInputToSegment to Ateme, uuid %s cmsRequestBody %s", uuid, cmsOutputBody));
+        log.info(String.format("[API addInputToSegment] JobData %s", jobData));
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
     // 6. add drm
@@ -189,24 +188,37 @@ public class AtemeController {
         //						encryptionName, encryptionName, jobResourceId, encryptionName);
 
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
-        log.info("[API addDrm] addDrm to Ateme, uuid %s cmsRequestBody %s", uuid, cmsRequestBody);
-        log.info("[API addDrm] addDrm to Ateme: JobData %s", jobData.toString());
+        log.info(String.format("[API addDrm] addDrm to Ateme, uuid %s, cmsRequestBody %s", uuid, cmsRequestBody));
+        log.info(String.format("[API addDrm] addDrm to Ateme: JobData %s", jobData.toString()));
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
 
     // 7. start job
-    @PostMapping("/{uuid}/state?value=pending")
+    @PostMapping("/{uuid}/state")
     public ResponseEntity<?> startJob(@PathVariable String uuid ) throws Exception {
-        log.info(String.format("[API startJob] addPreset with uuid %s", uuid));
+        log.info(String.format("[API startJob] startJob with uuid %s", uuid));
         // encode here:
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
         log.info(String.format("[API startJob] JobData: %s", jobData.toString()));
+
         if (jobData.isHlsEncode()) {
+            log.info(String.format("[API startJob] UUID {%s} start encode: HLS," +
+                    "\n{sourceFileName: %s, m3u8FileResource: %s}", uuid, jobData.getSourceFileName(), m3u8FileResource));
             hlsEncodingService.encode(jobData.getSourceFileName(), m3u8FileResource);
         } else {
+            log.info(String.format("[API startJob] UUID {%s} start encode: DASH, " +
+                    "\n{sourceFileName: %s, dashResource: %s}", uuid, jobData.getSourceFileName(), dashResource));
             dashEncodingService.encode(jobData.getSourceFileName(), dashResource);
         }
+        Job job  = EncodingService.getJobByUuid(uuid, dataCenter.getJobList());
+        job.setState(Constants.JobState.COMPLETE.getState());
+        job.setProgress(Constants.JobState.COMPLETE.getProgress());
+
+        // update:
+        saveJobToJobList(job, dataCenter.getJobList());
+        saveJobDataToJobDataList(jobData, dataCenter.getJobDataList());
+
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
 

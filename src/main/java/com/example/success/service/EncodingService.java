@@ -57,7 +57,7 @@ public class EncodingService {
         return null;
     }
 
-    public static void saveJobToDB(Job job, List<Job> jobList) {
+    public static void saveJobToJobList(Job job, List<Job> jobList) {
         if (jobList.isEmpty()) { // add a new job
             jobList.add(job);
             log.info("add more job [%s] to list successfully", job);
@@ -80,6 +80,30 @@ public class EncodingService {
         }
     }
 
+    public static void saveJobDataToJobDataList(JobData jobData, List<JobData> jobDataList) {
+        if (jobDataList.isEmpty()) {
+            jobDataList.add(jobData);
+            log.info("add more jobdata [%s] to list successfully", jobData);
+        } else { // update job data
+            int count = 0;
+            for (int i = 0; i < jobDataList.size(); i++) {
+                if (Objects.equals(jobDataList.get(i).getId(), jobData.getId())) {
+                    count ++;
+                    // update:
+                    jobDataList.set(i, jobData);
+                    log.info(String.format("Update job data [%s] to list successfully", jobData));
+                    break;
+                }
+            }
+            if (count == 0) {
+                // add job data:
+                jobDataList.add(jobData);
+                log.info("add more job data [%s] to list successfully", jobData);
+            }
+
+        }
+    }
+
     public static Job updateProgress(Job job, List<Job> jobList) {
         String originalProgress = job.getProgress();
         String initProgress ;
@@ -95,7 +119,7 @@ public class EncodingService {
         }
         job.setProgress(String.valueOf(proIncre));
         //update to jobList:
-        saveJobToDB(job, jobList);
+        saveJobToJobList(job, jobList);
         log.info(String.format("Update job with uuid %s from % to %s successfully", job.getId(), originalProgress, job.getProgress()));
         return job;
     }

@@ -2,6 +2,7 @@ package com.example.success.service.impl;
 
 
 import com.example.success.service.DashEncodingService;
+import com.example.success.utils.AtemeFilenameUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
@@ -23,7 +24,7 @@ public class DashEncodingServiceImpl implements DashEncodingService {
     @Override
     public void encode(String sourceFileName, String resource) throws Exception {
 
-        log.info(String.format("Start DASH encoding ..."));
+        log.info(String.format("Start DASH encoding {%s}...", FilenameUtils.getName(sourceFileName)));
 
         String encodedFileName = FilenameUtils.getBaseName(sourceFileName);
 
@@ -32,7 +33,7 @@ public class DashEncodingServiceImpl implements DashEncodingService {
         if (!resourceFile.exists()) {
             throw new Exception(String.format("Resource file: %s is not exist", resource));
         }
-        String destDir = FilenameUtils.getFullPath(sourceFileName) + File.separator + "dash" + File.separator;
+        String destDir = FilenameUtils.getFullPath(sourceFileName) + encodedFileName + File.separator;
         File destDirFile = new File(destDir);
         if (!destDirFile.exists()) {
             destDirFile.mkdirs();
@@ -73,6 +74,11 @@ public class DashEncodingServiceImpl implements DashEncodingService {
                  }
              }
          }
-        log.info(String.format("DASH encoding successfully!"));
+
+        // replace all old  file names  to new file names in content mpd file: resource 29815 -> new filename: 330345_4BC
+        log.info(String.format("DASH encoded folder here: %s", destDir));
+        AtemeFilenameUtils.modifyFile(destDir + File.separator + newFileName + ".mpd", oldFileName, newFileName);
+
+        log.info(String.format("DASH encoding successfully!, dash file is in {%s}", destDir));
     }
 }

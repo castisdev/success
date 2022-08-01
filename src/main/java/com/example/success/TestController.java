@@ -10,6 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.util.Arrays;
 import java.util.UUID;
 
 @RestController
@@ -23,8 +26,21 @@ public class TestController {
     @GetMapping("")
     public String testAPI() {
         log.info("this is testAPI");
-        log.info(String.format("this is content from resource: %s", testStr));
-        log.error("this is error");
+
+        String videoEncodingResponsePath = "E:\\NAS_INGEST01\\cms\\encoding\\processing_ott\\dash";
+        File fileDir = new File(videoEncodingResponsePath);
+
+        String[] directories = fileDir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File current, String name) {
+                return new File(current, name).isDirectory();
+            }
+        });
+        if (directories.length == 0) {
+            log.error("There is nothing in " + videoEncodingResponsePath);
+        }
+        System.out.println(Arrays.toString(directories));
+
         return "success";
     }
 
