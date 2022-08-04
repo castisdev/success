@@ -7,6 +7,7 @@ import com.example.success.entity.Job;
 import com.example.success.service.DashEncodingService;
 import com.example.success.service.EncodingService;
 import com.example.success.service.HlsEncodingService;
+import com.example.success.service.impl.HybridEncodingService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,13 +40,8 @@ public class AtemeController {
     @Autowired
     DashEncodingService dashEncodingService;
 
-    @Value("${resource.hls.file}")
-    private String m3u8FileResource;
-
-    @Value("${resource.dash.folder}")
-    private String dashResource;
-    // data
-
+    @Autowired
+    HybridEncodingService hybridEncodingService;
 
     @Autowired
     DataCenter dataCenter;
@@ -53,10 +49,21 @@ public class AtemeController {
     @Autowired
     JobData jobData;
 
-    @GetMapping("/dash")
+    @Value("${resource.hls.file}")
+    private String m3u8FileResource;
+
+    @Value("${resource.dash.folder}")
+    private String dashResource;
+
+    @Value("${resource.hybrid.file}")
+    private String hybridResource;
+
+
+
+    @GetMapping("/hybrid")
     public void testEncode() throws Exception {
-        String sourceFilename = "E:\\NAS_INGEST01\\cms\\repository\\asset\\202208\\test\\ott_dash\\test.mpd";
-        dashEncodingService.encode(sourceFilename, dashResource);
+        String sourceFilename = "E:\\test\\33015_47C.mp4";
+        hybridEncodingService.encode(sourceFilename, hybridResource);
     }
 
 
@@ -123,22 +130,26 @@ public class AtemeController {
         log.info(String.format("[API addPreset] addPreset with uuid %s, presetName %s", uuid, presetName));
 
 
-        boolean isHlsEncode = true;
+        boolean isDashEncode = false;
+        boolean isHybridEncode = false;
         // ott
         if (presetName.contains("dash") || presetName.contains("DASH")) {
             // encoding by dash
-            isHlsEncode = false;
+            isDashEncode = true;
+        } else {
+            if (presetName.contains("hybrid") || presetName.contains("HYBRID")) {
+                isHybridEncode = true;
+            }
         }
-        // todo: encoding by stb --- do nothing: processing with .ts file
 
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
         jobData.setPresetName(presetName);
-        jobData.setHlsEncode(isHlsEncode);
+        jobData.setDashEncode(isDashEncode);
+        jobData.setHybridEncode(isHybridEncode);
 
         saveJobDataToJobDataList(jobData, dataCenter.getJobDataList());
         dataCenter.setJobDataList(dataCenter.getJobDataList());
-        // stb
-        // ...
+
         log.info(String.format("[API addPreset] Job Data {%s}", EncodingService.getJobDataById(uuid, dataCenter.getJobDataList())));
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(uuid);
     }
@@ -202,14 +213,20 @@ public class AtemeController {
         JobData jobData = EncodingService.getJobDataById(uuid, dataCenter.getJobDataList());
         log.info(String.format("[API startJob] JobData: %s", jobData.toString()));
 
-        if (jobData.isHlsEncode()) {
-            log.info(String.format("[API startJob] UUID {%s} start encode: HLS," +
-                    "\n{sourceFileName: %s, m3u8FileResource: %s}", uuid, jobData.getSourceFileName(), m3u8FileResource));
-            hlsEncodingService.encode(jobData.getSourceFileName(), m3u8FileResource);
-        } else {
+        if (jobData.isDashEncode()) {
             log.info(String.format("[API startJob] UUID {%s} start encode: DASH, " +
                     "\n{sourceFileName: %s, dashResource: %s}", uuid, jobData.getSourceFileName(), dashResource));
             dashEncodingService.encode(jobData.getSourceFileName(), dashResource);
+
+        } else if (jobData.isDashEncode()) {
+            log.info(String.format("[API startJob] UUID {%s} start encode: HYBRID, " +
+                    "\n{sourceFileName: %s, hybridResource: %s}", uuid, jobData.getSourceFileName(), hybridResource));
+            hybridEncodingService.encode(jobData.getSourceFileName(), hybridResource);
+        } else {
+            log.info(String.format("[API startJob] UUID {%s} start encode: HLS," +
+                    "\n{sourceFileName: %s, m3u8FileResource: %s}", uuid, jobData.getSourceFileName(), m3u8FileResource));
+            hlsEncodingService.encode(jobData.getSourceFileName(), m3u8FileResource);
+
         }
         Job job  = EncodingService.getJobByUuid(uuid, dataCenter.getJobList());
         job.setState(Constants.JobState.COMPLETE.getState());

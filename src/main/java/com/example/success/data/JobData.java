@@ -15,5 +15,6 @@ public class JobData {
     private Job job;
     private String sourceFileName;
     private String presetName;
-    private boolean isHlsEncode;
+    private boolean isDashEncode;
+    private boolean isHybridEncode;
 }
