@@ -50,7 +50,7 @@ public class AtemeController {
     JobData jobData;
 
     @Value("${resource.hls.file}")
-    private String m3u8FileResource;
+    private String hlsFileResource; // m3u8 file
 
     @Value("${resource.dash.folder}")
     private String dashResource;
@@ -64,6 +64,8 @@ public class AtemeController {
     public void testEncode() throws Exception {
         String sourceFilename = "E:\\test\\33015_47C.mp4";
         hybridEncodingService.encode(sourceFilename, hybridResource);
+        hlsEncodingService.encode(sourceFilename, hlsFileResource);
+        dashEncodingService.encode(sourceFilename, dashResource);
     }
 
 
@@ -224,8 +226,8 @@ public class AtemeController {
             hybridEncodingService.encode(jobData.getSourceFileName(), hybridResource);
         } else {
             log.info(String.format("[API startJob] UUID {%s} start encode: HLS," +
-                    "\n{sourceFileName: %s, m3u8FileResource: %s}", uuid, jobData.getSourceFileName(), m3u8FileResource));
-            hlsEncodingService.encode(jobData.getSourceFileName(), m3u8FileResource);
+                    "\n{sourceFileName: %s, m3u8FileResource: %s}", uuid, jobData.getSourceFileName(), hlsFileResource));
+            hlsEncodingService.encode(jobData.getSourceFileName(), hlsFileResource);
 
         }
         Job job  = EncodingService.getJobByUuid(uuid, dataCenter.getJobList());

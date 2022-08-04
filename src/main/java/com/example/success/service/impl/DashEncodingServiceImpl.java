@@ -61,19 +61,9 @@ public class DashEncodingServiceImpl implements DashEncodingService {
             throw new Exception(String.format("None of .mpd file from: %s", destDir));
         }
 
-        // rename
-        String newDir = "";
-        String newFileName = "";
-        for (File file : fileList) {
-             if (file.isFile()) {
-                 String absolutePath = file.getAbsolutePath();
-                  newFileName = FilenameUtils.getBaseName(sourceFileName);
-                 if (absolutePath.contains(oldFileName)) {
-                     newDir = absolutePath.replace(oldFileName, newFileName);
-                     file.renameTo(new File(newDir));
-                 }
-             }
-         }
+        // rename file name in folder
+        String newFileName =  FilenameUtils.getBaseName(sourceFileName);
+        AtemeFilenameUtils.renameAllFilesInFolder(fileList, oldFileName, newFileName);
 
         // replace all old  file names  to new file names in content mpd file: resource 29815 -> new filename: 330345_4BC
         log.info(String.format("DASH encoded folder here: %s", destDir));
