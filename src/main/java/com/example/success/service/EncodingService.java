@@ -38,7 +38,7 @@ public class EncodingService {
         return jobRet;
     }
 
-    public static JobData getJobDataById(String id, List<JobData> jobDataList) {
+    public static JobData getJobDataById(String id, List<JobData> jobDataList) throws Exception {
 
         if (!id.isEmpty()) {
             if (Objects.nonNull(jobDataList))  {
@@ -53,8 +53,7 @@ public class EncodingService {
         } else {
             throw new IllegalArgumentException(String.format("id = %s is invalid", id));
         }
-
-        return null;
+        throw new Exception(String.format("Job (id = %s) is not found", id));
     }
 
     public static void saveJobToJobList(Job job, List<Job> jobList) {
